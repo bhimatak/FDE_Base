@@ -1,0 +1,8 @@
+# Step 2: legacy BI dashboard (Streamlit). Python 3.11 or newer (3.12 recommended).
+# Install into its own virtual environment, venv_legacy (see docs/02_Legacy_BI_Dashboard_Guide.md).
+streamlit==1.67.0
+pandas==3.1.1
+SQLAlchemy==2.1.9
+PyMySQL==1.2.4
+cryptography==50.0.2
+python-dotenv==1.2.4
