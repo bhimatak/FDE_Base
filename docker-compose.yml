@@ -1,0 +1,57 @@
+# =====================================================================
+# Legacy system: MySQL 8.4 LTS in Docker, standing in for the old
+# enterprise fleet database (no API, user ID + password only).
+#
+# Always run from the project folder (FDE_PB_Sol), for example:
+#   docker compose -f legacy_system/docker-compose.yml --env-file .env up -d --wait
+#
+# Names match the project's HLD/LLD so later steps plug in unchanged:
+#   container fde-mysql, volume fde_mysql_data, port 3306.
+# =====================================================================
+name: fde-legacy
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: fde-mysql
+    restart: unless-stopped
+
+    # Server options (the image adds "mysqld" in front of these):
+    #   local-infile          lets the load script read the CSV file
+    #   utf8mb4 + collation   full Unicode text
+    #   default-time-zone     store and show times as UTC (column TS_UTC)
+    command:
+      - --local-infile=ON
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+00:00
+
+    # Values come from the project-root .env (never commit that file).
+    # MYSQL_ROOT_PASSWORD is only used the FIRST time the data volume is
+    # created; changing it later in .env does not change the password.
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env (run legacy_system/create_env.sh)}
+      BI_ANALYST_USER: ${BI_ANALYST_USER:-bi_analyst}
+      BI_ANALYST_PASSWORD: ${BI_ANALYST_PASSWORD:?Set BI_ANALYST_PASSWORD in .env (run legacy_system/create_env.sh)}
+
+    # Reachable only from this Mac (127.0.0.1), not from your network.
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+
+    volumes:
+      - fde_mysql_data:/var/lib/mysql          # the database files (kept between restarts)
+      - ./mysql/scripts:/scripts:ro            # SQL and helper scripts (read-only)
+      - ../data/raw:/import/raw:ro             # the CSV to load (read-only, never changed)
+
+    # "healthy" = the real server accepts connections (not the first-start
+    # setup server). Used by "up --wait".
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+
+volumes:
+  fde_mysql_data:
+    name: fde_mysql_data
